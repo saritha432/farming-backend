@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-  'https://farming-frontend-git-main-mounikas-projects-76ff82b6.vercel.app/',
+  'https://farming-frontend-roan.vercel.app',
   
 ];
 
