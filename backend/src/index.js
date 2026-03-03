@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const multer = require('multer');
-const { init, get } = require('./db');
+const { init, get, getTable, setTable } = require('./db');
 const { UPLOAD_DIR } = require('./uploads');
 
 const postsRouter = require('./routes/posts');
@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-  'https://farming-frontend-roan.vercel.app',
+  'https://farming-frontend-two.vercel.app',
   
 ];
 
@@ -53,7 +53,7 @@ const postUpload = multer({
     else cb(null, false);
   },
 });
-app.post('/api/posts', postUpload.single('media'), (req, res) => {
+app.post('/api/posts', postUpload.single('media'), async (req, res) => {
   try {
     const farmer = (req.body && req.body.farmer) ? String(req.body.farmer).trim() : 'My Farm';
     const location = (req.body && req.body.location) ? String(req.body.location).trim() : '';
@@ -65,10 +65,10 @@ app.post('/api/posts', postUpload.single('media'), (req, res) => {
     if (!title) return res.status(400).json({ error: 'title is required' });
     let mediaUrl = null;
     if (req.file && req.file.filename) mediaUrl = '/uploads/' + req.file.filename;
-    const posts = getTable('posts');
+    const posts = await getTable('posts');
     const nextId = posts.length ? Math.max(...posts.map((r) => r.id)) + 1 : 1;
     const newPost = { id: nextId, farmer, location, type: type === 'Video' ? 'Video' : 'Photo', title, description, tags, mediaUrl };
-    setTable('posts', [...posts, newPost]);
+    await setTable('posts', [...posts, newPost]);
     res.status(201).json({ ...newPost, likeCount: 0, commentCount: 0, isLiked: false, isFollowing: false });
   } catch (err) {
     res.status(500).json({ error: err.message });
