@@ -18,7 +18,14 @@ const coursesRouter = require('./routes/courses');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors({ origin: ['http://localhost:3000', 'http://127.0.0.1:3000'] }));
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'https://<your-vercel-app>.vercel.app',
+];
+
+app.use(cors({ origin: allowedOrigins }));
+// app.use(cors({ origin: ['http://localhost:3000', 'http://127.0.0.1:3000'] }));
 app.use(express.json());
 app.use('/uploads', express.static(UPLOAD_DIR));
 
