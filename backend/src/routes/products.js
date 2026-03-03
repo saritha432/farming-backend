@@ -3,9 +3,10 @@ const { getTable } = require('../db');
 
 const router = express.Router();
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    res.json(getTable('products'));
+    const products = await getTable('products');
+    res.json(products);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

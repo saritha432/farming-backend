@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const multer = require('multer');
-const { init, get, getTable, setTable } = require('./db');
+const { init, get } = require('./db');
 const { UPLOAD_DIR } = require('./uploads');
 
 const postsRouter = require('./routes/posts');
@@ -30,7 +30,10 @@ app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 app.use('/uploads', express.static(UPLOAD_DIR));
 
-init();
+// Warm up DB cache (file or Neon). Don't block startup if it fails.
+init().catch((err) => {
+  console.error('DB init failed:', err);
+});
 
 // POST /api/posts - create post (with optional file upload) - registered on app to avoid router path issues
 const postUpload = multer({
@@ -81,9 +84,9 @@ app.use('/api/products', productsRouter);
 app.use('/api/sales', salesRouter);
 app.use('/api/courses', coursesRouter);
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
   try {
-    get();
+    await get();
     res.json({ ok: true, db: 'connected' });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

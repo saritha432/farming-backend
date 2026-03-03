@@ -31,13 +31,13 @@ function nextId(rows) {
   return rows.length ? Math.max(...rows.map((r) => r.id)) + 1 : 1;
 }
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const clientId = req.query.clientId || '';
-    const posts = getTable('posts');
-    const likes = getTable('post_likes');
-    const comments = getTable('post_comments');
-    const follows = getTable('follows');
+    const posts = await getTable('posts');
+    const likes = await getTable('post_likes');
+    const comments = await getTable('post_comments');
+    const follows = await getTable('follows');
 
     const result = posts.map((p) => {
       const likeCount = likes.filter((l) => l.postId === p.id).length;
@@ -66,7 +66,7 @@ router.get('/', (req, res) => {
 });
 
 // Match both '' and '/' (mount at /api/posts leaves path as '' for POST /api/posts)
-const createPostHandler = (req, res) => {
+const createPostHandler = async (req, res) => {
   try {
     const farmer = req.body.farmer || 'My Farm';
     const location = req.body.location || '';
@@ -85,7 +85,7 @@ const createPostHandler = (req, res) => {
       mediaUrl = `/uploads/${req.file.filename}`;
     }
 
-    const posts = getTable('posts');
+    const posts = await getTable('posts');
     const newPost = {
       id: nextId(posts),
       farmer,
@@ -96,7 +96,7 @@ const createPostHandler = (req, res) => {
       tags,
       mediaUrl,
     };
-    setTable('posts', [...posts, newPost]);
+    await setTable('posts', [...posts, newPost]);
 
     res.status(201).json({
       ...newPost,
@@ -112,16 +112,16 @@ const createPostHandler = (req, res) => {
 router.post('/', upload.single('media'), createPostHandler);
 router.post('', upload.single('media'), createPostHandler);
 
-router.post('/:id/like', express.json(), (req, res) => {
+router.post('/:id/like', express.json(), async (req, res) => {
   try {
     const postId = Number(req.params.id);
     const clientId = req.body.clientId;
     if (!clientId) return res.status(400).json({ error: 'clientId required' });
 
-    const posts = getTable('posts');
+    const posts = await getTable('posts');
     if (!posts.some((p) => p.id === postId)) return res.status(404).json({ error: 'Post not found' });
 
-    const likes = getTable('post_likes');
+    const likes = await getTable('post_likes');
     const key = { postId, clientId };
     const existing = likes.findIndex((l) => l.postId === postId && l.clientId === clientId);
     let next;
@@ -130,7 +130,7 @@ router.post('/:id/like', express.json(), (req, res) => {
     } else {
       next = [...likes, key];
     }
-    setTable('post_likes', next);
+    await setTable('post_likes', next);
     const likeCount = next.filter((l) => l.postId === postId).length;
     res.json({ liked: existing < 0, likeCount });
   } catch (err) {
@@ -138,27 +138,27 @@ router.post('/:id/like', express.json(), (req, res) => {
   }
 });
 
-router.get('/:id/comments', (req, res) => {
+router.get('/:id/comments', async (req, res) => {
   try {
     const postId = Number(req.params.id);
-    const comments = getTable('post_comments').filter((c) => c.postId === postId);
+    const comments = (await getTable('post_comments')).filter((c) => c.postId === postId);
     res.json(comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/:id/comments', express.json(), (req, res) => {
+router.post('/:id/comments', express.json(), async (req, res) => {
   try {
     const postId = Number(req.params.id);
     const author = (req.body.author || 'Anonymous').trim();
     const text = (req.body.text || '').trim();
     if (!text) return res.status(400).json({ error: 'text required' });
 
-    const posts = getTable('posts');
+    const posts = await getTable('posts');
     if (!posts.some((p) => p.id === postId)) return res.status(404).json({ error: 'Post not found' });
 
-    const comments = getTable('post_comments');
+    const comments = await getTable('post_comments');
     const newComment = {
       id: nextId(comments),
       postId,
@@ -166,25 +166,25 @@ router.post('/:id/comments', express.json(), (req, res) => {
       text,
       createdAt: new Date().toISOString(),
     };
-    setTable('post_comments', [...comments, newComment]);
+    await setTable('post_comments', [...comments, newComment]);
     res.status(201).json(newComment);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/:id/follow', express.json(), (req, res) => {
+router.post('/:id/follow', express.json(), async (req, res) => {
   try {
     const postId = Number(req.params.id);
     const clientId = req.body.clientId;
     if (!clientId) return res.status(400).json({ error: 'clientId required' });
 
-    const posts = getTable('posts');
+    const posts = await getTable('posts');
     const post = posts.find((p) => p.id === postId);
     if (!post) return res.status(404).json({ error: 'Post not found' });
     const farmer = post.farmer;
 
-    const follows = getTable('follows');
+    const follows = await getTable('follows');
     const existing = follows.findIndex((f) => f.farmer === farmer && f.clientId === clientId);
     let next;
     if (existing >= 0) {
@@ -192,7 +192,7 @@ router.post('/:id/follow', express.json(), (req, res) => {
     } else {
       next = [...follows, { clientId, farmer }];
     }
-    setTable('follows', next);
+    await setTable('follows', next);
     const isFollowing = next.some((f) => f.farmer === farmer && f.clientId === clientId);
     res.json({ following: isFollowing });
   } catch (err) {
