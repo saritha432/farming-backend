@@ -44,4 +44,26 @@ router.post('/', async (req, res) => {
   }
 });
 
+// DELETE /api/guides/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'invalid id' });
+    }
+
+    const guides = await getTable('guides');
+    if (!guides.some((g) => g.id === id)) {
+      return res.status(404).json({ error: 'guide not found' });
+    }
+
+    const nextGuides = guides.filter((g) => g.id !== id);
+    await setTable('guides', nextGuides);
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

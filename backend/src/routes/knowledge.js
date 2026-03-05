@@ -66,6 +66,36 @@ router.post('/sessions', async (req, res) => {
   }
 });
 
+// DELETE /api/knowledge/sessions/:id - delete a session and its related data
+router.delete('/sessions/:id', async (req, res) => {
+  try {
+    const sessionId = Number(req.params.id);
+    if (!Number.isFinite(sessionId)) {
+      return res.status(400).json({ error: 'invalid session id' });
+    }
+
+    const sessions = await getTable('knowledge_sessions');
+    if (!sessions.some((s) => s.id === sessionId)) {
+      return res.status(404).json({ error: 'session not found' });
+    }
+
+    const questions = await getTable('knowledge_questions');
+    const subs = await getTable('knowledge_subscriptions');
+
+    const nextSessions = sessions.filter((s) => s.id !== sessionId);
+    const nextQuestions = questions.filter((q) => q.sessionId !== sessionId);
+    const nextSubs = subs.filter((sub) => sub.sessionId !== sessionId);
+
+    await setTable('knowledge_sessions', nextSessions);
+    await setTable('knowledge_questions', nextQuestions);
+    await setTable('knowledge_subscriptions', nextSubs);
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/knowledge/sessions/:id/subscribe  { clientId }
 router.post('/sessions/:id/subscribe', async (req, res) => {
   try {
@@ -143,6 +173,34 @@ router.post('/sessions/:id/questions', async (req, res) => {
     };
     await setTable('knowledge_questions', [...questions, newQuestion]);
     res.status(201).json(newQuestion);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/knowledge/sessions/:sessionId/questions/:questionId
+router.delete('/sessions/:sessionId/questions/:questionId', async (req, res) => {
+  try {
+    const sessionId = Number(req.params.sessionId);
+    const questionId = Number(req.params.questionId);
+    if (!Number.isFinite(sessionId) || !Number.isFinite(questionId)) {
+      return res.status(400).json({ error: 'invalid id' });
+    }
+
+    const sessions = await getTable('knowledge_sessions');
+    if (!sessions.some((s) => s.id === sessionId)) {
+      return res.status(404).json({ error: 'session not found' });
+    }
+
+    const questions = await getTable('knowledge_questions');
+    if (!questions.some((q) => q.id === questionId && q.sessionId === sessionId)) {
+      return res.status(404).json({ error: 'question not found' });
+    }
+
+    const nextQuestions = questions.filter((q) => !(q.id === questionId && q.sessionId === sessionId));
+    await setTable('knowledge_questions', nextQuestions);
+
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
