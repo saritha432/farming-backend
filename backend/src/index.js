@@ -11,6 +11,7 @@ const jobsRouter = require('./routes/jobs');
 const productsRouter = require('./routes/products');
 const salesRouter = require('./routes/sales');
 const coursesRouter = require('./routes/courses');
+const knowledgeRouter = require('./routes/knowledge');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,6 +41,7 @@ app.use('/api/jobs', jobsRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/sales', salesRouter);
 app.use('/api/courses', coursesRouter);
+app.use('/api/knowledge', knowledgeRouter);
 
 app.get('/api/health', async (req, res) => {
   try {

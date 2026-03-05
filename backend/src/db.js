@@ -17,6 +17,10 @@ const defaultData = {
   post_likes: [],
   post_comments: [],
   follows: [],
+  // Knowledge / live Q&A data
+  knowledge_sessions: [],
+  knowledge_questions: [],
+  knowledge_subscriptions: [],
 };
 
 // ---------- File-based implementation (fallback if DATABASE_URL not set) ----------
