@@ -1,9 +1,6 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
 const cors = require('cors');
-const multer = require('multer');
-const { init, get, getTable, setTable } = require('./db');
+const { init, get } = require('./db');
 const { UPLOAD_DIR } = require('./uploads');
 
 const postsRouter = require('./routes/posts');
@@ -33,46 +30,6 @@ app.use('/uploads', express.static(UPLOAD_DIR));
 // Warm up DB cache (file or Neon). Don't block startup if it fails.
 init().catch((err) => {
   console.error('DB init failed:', err);
-});
-
-// POST /api/posts - create post (with optional file upload) - registered on app to avoid router path issues
-const postUpload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-      cb(null, UPLOAD_DIR);
-    },
-    filename: (req, file, cb) => {
-      const ext = /video\/|\.mp4$/i.test(file.mimetype + file.originalname) ? '.mp4' : path.extname(file.originalname) || '.jpg';
-      cb(null, 'media-' + Date.now() + ext);
-    },
-  }),
-  limits: { fileSize: 50 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (/image\/|video\//.test(file.mimetype)) cb(null, true);
-    else cb(null, false);
-  },
-});
-app.post('/api/posts', postUpload.single('media'), async (req, res) => {
-  try {
-    const farmer = (req.body && req.body.farmer) ? String(req.body.farmer).trim() : 'My Farm';
-    const location = (req.body && req.body.location) ? String(req.body.location).trim() : '';
-    const type = (req.body && req.body.type) ? String(req.body.type).trim() : 'Photo';
-    const title = (req.body && req.body.title) ? String(req.body.title).trim() : '';
-    const description = (req.body && req.body.description) ? String(req.body.description).trim() : '';
-    const tagsStr = (req.body && req.body.tags) ? String(req.body.tags).trim() : '';
-    const tags = tagsStr ? tagsStr.split(',').map((s) => s.trim()).filter(Boolean) : [];
-    if (!title) return res.status(400).json({ error: 'title is required' });
-    let mediaUrl = null;
-    if (req.file && req.file.filename) mediaUrl = '/uploads/' + req.file.filename;
-    const posts = await getTable('posts');
-    const nextId = posts.length ? Math.max(...posts.map((r) => r.id)) + 1 : 1;
-    const newPost = { id: nextId, farmer, location, type: type === 'Video' ? 'Video' : 'Photo', title, description, tags, mediaUrl };
-    await setTable('posts', [...posts, newPost]);
-    res.status(201).json({ ...newPost, likeCount: 0, commentCount: 0, isLiked: false, isFollowing: false });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
 app.use('/api/posts', postsRouter);

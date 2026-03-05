@@ -8,6 +8,7 @@
     "init-db": "node src/initDb.js"
   },
   "dependencies": {
+    "cloudinary": "^1.41.3",
     "pg": "^8.11.5",
     "cors": "^2.8.5",
     "express": "^4.21.2",

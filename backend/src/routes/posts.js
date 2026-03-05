@@ -1,24 +1,14 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('../cloudinary');
 const { getTable, setTable } = require('../db');
 const { UPLOAD_DIR } = require('../uploads');
 
 const router = express.Router();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-    cb(null, UPLOAD_DIR);
-  },
-  filename: (req, file, cb) => {
-    const ext = (file.mimetype === 'video/mp4' || file.originalname.toLowerCase().endsWith('.mp4')) ? '.mp4' : path.extname(file.originalname) || '.jpg';
-    cb(null, `media-${Date.now()}${ext}`);
-  },
-});
+// Store uploads in memory and send directly to Cloudinary
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = /image\/|video\//;
@@ -81,8 +71,25 @@ const createPostHandler = async (req, res) => {
     }
 
     let mediaUrl = null;
-    if (req.file && req.file.filename) {
-      mediaUrl = `/uploads/${req.file.filename}`;
+    if (req.file && req.file.buffer) {
+      const isVideo = /^video\//.test(req.file.mimetype) || req.file.originalname.toLowerCase().endsWith('.mp4');
+      const resourceType = isVideo ? 'video' : 'image';
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'agrovibes_posts',
+            resource_type: resourceType,
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          },
+        );
+        stream.end(req.file.buffer);
+      });
+
+      mediaUrl = uploadResult.secure_url;
     }
 
     const posts = await getTable('posts');
