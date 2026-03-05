@@ -11,5 +11,8 @@ module.exports = function seed() {
     post_likes: [],
     post_comments: [],
     follows: [],
+    knowledge_sessions: [],
+    knowledge_questions: [],
+    knowledge_subscriptions: [],
   };
 };
