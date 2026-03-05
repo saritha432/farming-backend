@@ -20,9 +20,17 @@ router.get('/', async (req, res) => {
 // POST /api/products
 router.post('/', async (req, res) => {
   try {
-    const { name, type, crops, benefits, risk } = req.body;
-    if (!name || !type) {
-      return res.status(400).json({ error: 'name and type are required' });
+    const body = req.body || {};
+    const name = (body.name || body.productName || '').trim();
+    // Allow type to be optional and accept a few common aliases
+    const rawType = body.type || body.productType || body.category || 'Other';
+    const type = String(rawType).trim();
+    const crops = (body.crops || '').trim();
+    const benefits = (body.benefits || '').trim();
+    const risk = (body.risk || '').trim();
+
+    if (!name) {
+      return res.status(400).json({ error: 'name is required' });
     }
 
     const rows = await getTable('products');
@@ -31,9 +39,9 @@ router.post('/', async (req, res) => {
       name: name.trim(),
       type: type.trim(),
       type_key: type.trim(), // keep simple; can be customized later
-      crops: (crops || '').trim(),
-      benefits: (benefits || '').trim(),
-      risk: (risk || '').trim(),
+      crops,
+      benefits,
+      risk,
     };
 
     await setTable('products', [...rows, newProduct]);
