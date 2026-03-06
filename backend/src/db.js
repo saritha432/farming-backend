@@ -9,6 +9,7 @@ const defaultData = {
   posts: [],
   guides: [],
   equipment: [],
+  equipment_requests: [],
   workers: [],
   jobs: [],
   products: [],
