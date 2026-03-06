@@ -207,4 +207,37 @@ router.post('/:id/follow', express.json(), async (req, res) => {
   }
 });
 
+// DELETE /api/posts/:id - remove post and its likes/comments/follows
+router.delete('/:id', async (req, res) => {
+  try {
+    const postId = Number(req.params.id);
+    if (!Number.isFinite(postId)) {
+      return res.status(400).json({ error: 'invalid id' });
+    }
+
+    const posts = await getTable('posts');
+    if (!posts.some((p) => p.id === postId)) {
+      return res.status(404).json({ error: 'post not found' });
+    }
+
+    const likes = await getTable('post_likes');
+    const comments = await getTable('post_comments');
+    const follows = await getTable('follows');
+
+    const nextPosts = posts.filter((p) => p.id !== postId);
+    const nextLikes = likes.filter((l) => l.postId !== postId);
+    const nextComments = comments.filter((c) => c.postId !== postId);
+    const nextFollows = follows; // we don't know which follows are only for this post's farmer, so keep them
+
+    await setTable('posts', nextPosts);
+    await setTable('post_likes', nextLikes);
+    await setTable('post_comments', nextComments);
+    await setTable('follows', nextFollows);
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

@@ -84,6 +84,27 @@ router.post('/', guideUpload.single('file'), async (req, res) => {
   }
 });
 
+// DELETE /api/guides/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'invalid id' });
+    }
+
+    const guides = await getTable('guides');
+    if (!guides.some((g) => g.id === id)) {
+      return res.status(404).json({ error: 'guide not found' });
+    }
+
+    const nextGuides = guides.filter((g) => g.id !== id);
+    await setTable('guides', nextGuides);
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // PUT /api/guides/:id
 router.put('/:id', async (req, res) => {
   try {
@@ -104,19 +125,6 @@ router.put('/:id', async (req, res) => {
     next[idx] = nextGuide;
     await setTable('guides', next);
     res.json(nextGuide);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// DELETE /api/guides/:id
-router.delete('/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const rows = await getTable('guides');
-    if (!rows.some((g) => g.id === id)) return res.status(404).json({ error: 'guide not found' });
-    await setTable('guides', rows.filter((g) => g.id !== id));
-    res.status(204).end();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
