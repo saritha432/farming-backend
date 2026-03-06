@@ -98,6 +98,42 @@ router.delete('/sessions/:id', async (req, res) => {
   }
 });
 
+// PUT /api/knowledge/sessions/:id - update session details (title, description, schedule, host, status)
+router.put('/sessions/:id', async (req, res) => {
+  try {
+    const sessionId = Number(req.params.id);
+    if (!Number.isFinite(sessionId)) {
+      return res.status(400).json({ error: 'invalid session id' });
+    }
+
+    const { title, description, schedule, host, status } = req.body || {};
+
+    const sessions = await getTable('knowledge_sessions');
+    const idx = sessions.findIndex((s) => s.id === sessionId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'session not found' });
+    }
+
+    const existing = sessions[idx];
+    const updated = {
+      ...existing,
+      title: title !== undefined ? String(title).trim() : existing.title,
+      description: description !== undefined ? String(description).trim() : existing.description,
+      schedule: schedule !== undefined ? String(schedule).trim() : existing.schedule,
+      host: host !== undefined ? String(host).trim() : existing.host,
+      status: status !== undefined ? String(status).trim() : existing.status,
+    };
+
+    const next = sessions.slice();
+    next[idx] = updated;
+    await setTable('knowledge_sessions', next);
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/knowledge/sessions/:id/subscribe  { clientId }
 router.post('/sessions/:id/subscribe', async (req, res) => {
   try {
@@ -152,11 +188,11 @@ router.get('/sessions/:id/questions', async (req, res) => {
   }
 });
 
-// POST /api/knowledge/sessions/:id/questions  { author?, text }
+// POST /api/knowledge/sessions/:id/questions  { author?, text, parentId? }
 router.post('/sessions/:id/questions', async (req, res) => {
   try {
     const sessionId = Number(req.params.id);
-    const { author, text } = req.body || {};
+    const { author, text, parentId } = req.body || {};
     const trimmedText = (text || '').trim();
     if (!trimmedText) {
       return res.status(400).json({ error: 'text is required' });
@@ -166,12 +202,24 @@ router.post('/sessions/:id/questions', async (req, res) => {
       return res.status(404).json({ error: 'session not found' });
     }
     const questions = await getTable('knowledge_questions');
+    let parent = null;
+    if (parentId != null) {
+      const parentNum = Number(parentId);
+      if (!Number.isFinite(parentNum)) {
+        return res.status(400).json({ error: 'invalid parentId' });
+      }
+      parent = questions.find((q) => q.id === parentNum && q.sessionId === sessionId);
+      if (!parent) {
+        return res.status(404).json({ error: 'parent question not found for this session' });
+      }
+    }
     const newQuestion = {
       id: nextId(questions),
       sessionId,
       author: (author || 'Farmer').trim(),
       text: trimmedText,
       createdAt: new Date().toISOString(),
+      parentId: parent ? parent.id : null,
     };
     await setTable('knowledge_questions', [...questions, newQuestion]);
     res.status(201).json(newQuestion);
