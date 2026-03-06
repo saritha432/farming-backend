@@ -29,6 +29,7 @@ router.get('/sessions', async (req, res) => {
         schedule: s.schedule || '',
         host: s.host || '',
         status: s.status || 'upcoming',
+        guideId: s.guideId || null,
         questionCount: sessionQuestions.length,
         subscriberCount: sessionSubs.length,
         isSubscribed,
@@ -44,7 +45,7 @@ router.get('/sessions', async (req, res) => {
 // POST /api/knowledge/sessions - create a new session (simple admin tool)
 router.post('/sessions', async (req, res) => {
   try {
-    const { title, description, schedule, host, status } = req.body || {};
+    const { title, description, schedule, host, status, guideId } = req.body || {};
     const trimmedTitle = (title || '').trim();
     if (!trimmedTitle) {
       return res.status(400).json({ error: 'title is required' });
@@ -58,6 +59,7 @@ router.post('/sessions', async (req, res) => {
       schedule: (schedule || '').trim(),
       host: (host || '').trim(),
       status: (status || 'upcoming').trim(),
+      guideId: guideId != null ? Number(guideId) : null,
     };
     await setTable('knowledge_sessions', [...sessions, newSession]);
     res.status(201).json(newSession);
