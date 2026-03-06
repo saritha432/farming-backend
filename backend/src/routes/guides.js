@@ -52,21 +52,15 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/guides — accepts JSON or multipart/form-data (optional file)
-router.post('/', (req, res, next) => {
-  const isMultipart = (req.headers['content-type'] || '').includes('multipart/form-data');
-  if (isMultipart) {
-    return guideUpload.single('file')(req, res, (err) => {
-      if (err) return res.status(400).json({ error: err.message || 'File upload failed' });
-      next();
-    });
-  }
-  next();
-}, async (req, res) => {
+// POST /api/guides — use multer for every POST so multipart is always parsed (JSON body is set by express.json() before route)
+router.post('/', guideUpload.single('file'), async (req, res) => {
   try {
     const { title, level, duration, description } = readBody(req);
     if (!title) {
-      return res.status(400).json({ error: 'title is required' });
+      return res.status(400).json({
+        error: 'title is required',
+        hint: 'For file uploads use multipart/form-data with a "title" field.',
+      });
     }
 
     const rows = await getTable('guides');
