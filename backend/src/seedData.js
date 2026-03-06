@@ -3,6 +3,7 @@ module.exports = function seed() {
     posts: [],
     guides: [],
     equipment: [],
+    equipment_requests: [],
     workers: [],
     jobs: [],
     products: [],
