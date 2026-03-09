@@ -3,6 +3,7 @@ const cors = require('cors');
 const { init, get } = require('./db');
 const { UPLOAD_DIR } = require('./uploads');
 
+const authRouter = require('./routes/auth');
 const postsRouter = require('./routes/posts');
 const guidesRouter = require('./routes/guides');
 const equipmentRouter = require('./routes/equipment');
@@ -33,6 +34,7 @@ init().catch((err) => {
   console.error('DB init failed:', err);
 });
 
+app.use('/api/auth', authRouter);
 app.use('/api/posts', postsRouter);
 app.use('/api/guides', guidesRouter);
 app.use('/api/equipment', equipmentRouter);
