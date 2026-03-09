@@ -10,6 +10,7 @@ const defaultData = {
   guides: [],
   equipment: [],
   equipment_requests: [],
+  users: [],
   workers: [],
   jobs: [],
   products: [],
