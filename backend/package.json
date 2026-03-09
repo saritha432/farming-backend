@@ -8,6 +8,7 @@
     "init-db": "node src/initDb.js"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "express": "^4.21.2",
