@@ -15,6 +15,8 @@ router.get('/sessions', async (req, res) => {
     const questions = await getTable('knowledge_questions');
     const subs = await getTable('knowledge_subscriptions');
 
+    const now = Date.now();
+
     const enriched = sessions.map((s) => {
       const sessionQuestions = questions.filter((q) => q.sessionId === s.id);
       const sessionSubs = subs.filter((sub) => sub.sessionId === s.id);
@@ -22,13 +24,23 @@ router.get('/sessions', async (req, res) => {
         clientId && sessionSubs.some((sub) => sub.clientId === clientId),
       );
 
+      const schedule = s.schedule || '';
+      const baseStatus = (s.status || 'upcoming').trim() || 'upcoming';
+      let computedStatus = baseStatus;
+      if (schedule) {
+        const ts = Date.parse(schedule);
+        if (!Number.isNaN(ts) && ts < now && baseStatus === 'upcoming') {
+          computedStatus = 'completed';
+        }
+      }
+
       return {
         id: s.id,
         title: s.title,
         description: s.description || '',
-        schedule: s.schedule || '',
+        schedule,
         host: s.host || '',
-        status: s.status || 'upcoming',
+        status: computedStatus,
         guideId: s.guideId || null,
         questionCount: sessionQuestions.length,
         subscriberCount: sessionSubs.length,
