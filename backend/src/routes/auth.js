@@ -57,4 +57,35 @@ router.post('/signup', express.json(), async (req, res) => {
   }
 });
 
+// POST /api/auth/login - authenticate with email + password
+router.post('/login', express.json(), async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    const emailTrim = (email && typeof email === 'string' ? email.trim() : '').toLowerCase();
+    if (!emailTrim || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const users = await getTable('users');
+    const user = users.find((u) => (u.email || '').toLowerCase() === emailTrim);
+    if (!user || !user.passwordHash) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const match = await bcrypt.compare(password, user.passwordHash);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      email: user.email,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Login failed' });
+  }
+});
+
 module.exports = router;
