@@ -1,3 +1,4 @@
+// backend/src/index.js
 const express = require('express');
 const cors = require('cors');
 const { init, get } = require('./db');
@@ -21,11 +22,9 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'https://farming-frontend-two.vercel.app',
-  
 ];
 
 app.use(cors({ origin: allowedOrigins }));
-// app.use(cors({ origin: ['http://localhost:3000', 'http://127.0.0.1:3000'] }));
 app.use(express.json());
 app.use('/uploads', express.static(UPLOAD_DIR));
 
@@ -34,6 +33,7 @@ init().catch((err) => {
   console.error('DB init failed:', err);
 });
 
+// Mount routes
 app.use('/api/auth', authRouter);
 app.use('/api/posts', postsRouter);
 app.use('/api/guides', guidesRouter);
