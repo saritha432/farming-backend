@@ -1,32 +1,37 @@
+// backend/src/routes/auth.js
 const express = require('express');
-const { getTable, setTable } = require('../db');
 const bcrypt = require('bcrypt');
+const { getTable, setTable } = require('../db');
 
 const router = express.Router();
-
 const SALT_ROUNDS = 10;
 
 function nextId(rows) {
   return rows.length ? Math.max(...rows.map((r) => r.id)) + 1 : 1;
 }
 
-// POST /api/auth/signup - register new user
-router.post('/signup', express.json(), async (req, res) => {
+// POST /api/auth/signup
+router.post('/signup', async (req, res) => {
   try {
     const { username, fullName, email, password } = req.body || {};
-    const u = (v) => (v && typeof v === 'string' ? v.trim() : '');
-    const usernameTrim = u(username);
-    const fullNameTrim = u(fullName);
-    const emailTrim = u(email).toLowerCase();
+    const trim = (v) => (typeof v === 'string' ? v.trim() : '');
+    const usernameTrim = trim(username);
+    const fullNameTrim = trim(fullName);
+    const emailTrim = trim(email).toLowerCase();
 
     if (!usernameTrim || !fullNameTrim || !emailTrim || !password) {
-      return res.status(400).json({ error: 'Username, full name, email and password are required' });
+      return res
+        .status(400)
+        .json({ error: 'Username, full name, email and password are required' });
     }
     if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      return res
+        .status(400)
+        .json({ error: 'Password must be at least 6 characters' });
     }
 
     const users = await getTable('users');
+
     if (users.some((u) => (u.username || '').toLowerCase() === usernameTrim.toLowerCase())) {
       return res.status(409).json({ error: 'Username already taken' });
     }
@@ -34,13 +39,14 @@ router.post('/signup', express.json(), async (req, res) => {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
     const newUser = {
       id: nextId(users),
       username: usernameTrim,
       fullName: fullNameTrim,
       email: emailTrim,
-      passwordHash: hashedPassword,
+      passwordHash,
       createdAt: new Date().toISOString(),
     };
 
@@ -57,23 +63,27 @@ router.post('/signup', express.json(), async (req, res) => {
   }
 });
 
-// POST /api/auth/login - authenticate with email + password
-router.post('/login', express.json(), async (req, res) => {
+// POST /api/auth/login
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    const emailTrim = (email && typeof email === 'string' ? email.trim() : '').toLowerCase();
+    const emailTrim = (typeof email === 'string' ? email.trim() : '').toLowerCase();
+
     if (!emailTrim || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return res
+        .status(400)
+        .json({ error: 'Email and password are required' });
     }
 
     const users = await getTable('users');
     const user = users.find((u) => (u.email || '').toLowerCase() === emailTrim);
+
     if (!user || !user.passwordHash) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const match = await bcrypt.compare(password, user.passwordHash);
-    if (!match) {
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
