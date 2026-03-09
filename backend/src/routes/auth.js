@@ -12,55 +12,56 @@ function nextId(rows) {
 
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
-  try {
-    const { username, fullName, email, password } = req.body || {};
-    const trim = (v) => (typeof v === 'string' ? v.trim() : '');
-    const usernameTrim = trim(username);
-    const fullNameTrim = trim(fullName);
-    const emailTrim = trim(email).toLowerCase();
+  res.send('Signup route working');
+  // try {
+  //   const { username, fullName, email, password } = req.body || {};
+  //   const trim = (v) => (typeof v === 'string' ? v.trim() : '');
+  //   const usernameTrim = trim(username);
+  //   const fullNameTrim = trim(fullName);
+  //   const emailTrim = trim(email).toLowerCase();
 
-    if (!usernameTrim || !fullNameTrim || !emailTrim || !password) {
-      return res
-        .status(400)
-        .json({ error: 'Username, full name, email and password are required' });
-    }
-    if (password.length < 6) {
-      return res
-        .status(400)
-        .json({ error: 'Password must be at least 6 characters' });
-    }
+  //   if (!usernameTrim || !fullNameTrim || !emailTrim || !password) {
+  //     return res
+  //       .status(400)
+  //       .json({ error: 'Username, full name, email and password are required' });
+  //   }
+  //   if (password.length < 6) {
+  //     return res
+  //       .status(400)
+  //       .json({ error: 'Password must be at least 6 characters' });
+  //   }
 
-    const users = await getTable('users');
+  //   const users = await getTable('users');
 
-    if (users.some((u) => (u.username || '').toLowerCase() === usernameTrim.toLowerCase())) {
-      return res.status(409).json({ error: 'Username already taken' });
-    }
-    if (users.some((u) => (u.email || '').toLowerCase() === emailTrim)) {
-      return res.status(409).json({ error: 'Email already registered' });
-    }
+  //   if (users.some((u) => (u.username || '').toLowerCase() === usernameTrim.toLowerCase())) {
+  //     return res.status(409).json({ error: 'Username already taken' });
+  //   }
+  //   if (users.some((u) => (u.email || '').toLowerCase() === emailTrim)) {
+  //     return res.status(409).json({ error: 'Email already registered' });
+  //   }
 
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+  //   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const newUser = {
-      id: nextId(users),
-      username: usernameTrim,
-      fullName: fullNameTrim,
-      email: emailTrim,
-      passwordHash,
-      createdAt: new Date().toISOString(),
-    };
+  //   const newUser = {
+  //     id: nextId(users),
+  //     username: usernameTrim,
+  //     fullName: fullNameTrim,
+  //     email: emailTrim,
+  //     passwordHash,
+  //     createdAt: new Date().toISOString(),
+  //   };
 
-    await setTable('users', [...users, newUser]);
+  //   await setTable('users', [...users, newUser]);
 
-    res.status(201).json({
-      id: newUser.id,
-      username: newUser.username,
-      fullName: newUser.fullName,
-      email: newUser.email,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message || 'Sign up failed' });
-  }
+  //   res.status(201).json({
+  //     id: newUser.id,
+  //     username: newUser.username,
+  //     fullName: newUser.fullName,
+  //     email: newUser.email,
+  //   });
+  // } catch (err) {
+  //   res.status(500).json({ error: err.message || 'Sign up failed' });
+  // }
 });
 
 // POST /api/auth/login
