@@ -14,6 +14,7 @@ const productsRouter = require('./routes/products');
 const salesRouter = require('./routes/sales');
 const coursesRouter = require('./routes/courses');
 const knowledgeRouter = require('./routes/knowledge');
+const usersRouter = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,6 +37,7 @@ init().catch((err) => {
 // Mount routes
 app.use('/api/auth', authRouter);
 app.use('/api/posts', postsRouter);
+app.use('/api/users', usersRouter);
 app.use('/api/guides', guidesRouter);
 app.use('/api/equipment', equipmentRouter);
 app.use('/api/workers', workersRouter);
