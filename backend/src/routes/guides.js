@@ -1,28 +1,15 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
 const { getTable, setTable } = require('../db');
-const { UPLOAD_DIR } = require('../uploads');
+const cloudinary = require('../cloudinary');
 
 const router = express.Router();
 
-const GUIDES_DIR = path.join(UPLOAD_DIR, 'guides');
-
 const guideUpload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      if (!fs.existsSync(GUIDES_DIR)) fs.mkdirSync(GUIDES_DIR, { recursive: true });
-      cb(null, GUIDES_DIR);
-    },
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname) || '.pdf';
-      cb(null, `guide-${Date.now()}${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB
   fileFilter: (req, file, cb) => {
-    const allowed = /^application\/pdf$|^image\//i;
+    const allowed = /^application\/pdf$/i;
     if (allowed.test(file.mimetype)) cb(null, true);
     else cb(null, false); // skip file but don't error so title/description still work
   },
@@ -52,21 +39,40 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/guides — use multer for every POST so multipart is always parsed (JSON body is set by express.json() before route)
-router.post('/', guideUpload.single('file'), async (req, res) => {
+// POST /api/guides — accepts JSON or multipart/form-data (optional file)
+router.post('/', (req, res, next) => {
+  const isMultipart = (req.headers['content-type'] || '').includes('multipart/form-data');
+  if (isMultipart) {
+    return guideUpload.single('file')(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message || 'File upload failed' });
+      next();
+    });
+  }
+  next();
+}, async (req, res) => {
   try {
     const { title, level, duration, description } = readBody(req);
     if (!title) {
-      return res.status(400).json({
-        error: 'title is required',
-        hint: 'For file uploads use multipart/form-data with a "title" field.',
-      });
+      return res.status(400).json({ error: 'title is required' });
     }
 
     const rows = await getTable('guides');
     let fileUrl = null;
-    if (req.file && req.file.filename) {
-      fileUrl = `/uploads/guides/${req.file.filename}`;
+    if (req.file && req.file.buffer) {
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'agrovibes_guides',
+            resource_type: 'raw',
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          },
+        );
+        stream.end(req.file.buffer);
+      });
+      fileUrl = uploadResult.secure_url;
     }
     const newGuide = {
       id: nextId(rows),
@@ -84,27 +90,6 @@ router.post('/', guideUpload.single('file'), async (req, res) => {
   }
 });
 
-// DELETE /api/guides/:id
-router.delete('/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ error: 'invalid id' });
-    }
-
-    const guides = await getTable('guides');
-    if (!guides.some((g) => g.id === id)) {
-      return res.status(404).json({ error: 'guide not found' });
-    }
-
-    const nextGuides = guides.filter((g) => g.id !== id);
-    await setTable('guides', nextGuides);
-
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 // PUT /api/guides/:id
 router.put('/:id', async (req, res) => {
   try {
@@ -125,6 +110,19 @@ router.put('/:id', async (req, res) => {
     next[idx] = nextGuide;
     await setTable('guides', next);
     res.json(nextGuide);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/guides/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const rows = await getTable('guides');
+    if (!rows.some((g) => g.id === id)) return res.status(404).json({ error: 'guide not found' });
+    await setTable('guides', rows.filter((g) => g.id !== id));
+    res.status(204).end();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
