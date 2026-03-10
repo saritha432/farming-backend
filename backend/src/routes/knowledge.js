@@ -16,6 +16,8 @@ router.get('/sessions', async (req, res) => {
     const subs = await getTable('knowledge_subscriptions');
 
     const now = Date.now();
+    const LIVE_WINDOW_MINUTES = 20;
+    const LIVE_WINDOW_MS = LIVE_WINDOW_MINUTES * 60 * 1000;
 
     const enriched = sessions.map((s) => {
       const sessionQuestions = questions.filter((q) => q.sessionId === s.id);
@@ -29,8 +31,13 @@ router.get('/sessions', async (req, res) => {
       let computedStatus = baseStatus;
       if (schedule) {
         const ts = Date.parse(schedule);
-        if (!Number.isNaN(ts) && ts < now && baseStatus === 'upcoming') {
-          computedStatus = 'completed';
+        if (!Number.isNaN(ts)) {
+          const endTs = ts + LIVE_WINDOW_MS;
+          if (now >= ts && now <= endTs) {
+            computedStatus = 'live';
+          } else if (now > endTs && (baseStatus === 'upcoming' || baseStatus === 'live')) {
+            computedStatus = 'completed';
+          }
         }
       }
 
