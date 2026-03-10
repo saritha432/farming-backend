@@ -180,6 +180,30 @@ router.post('/:id/comments', express.json(), async (req, res) => {
   }
 });
 
+// DELETE /api/posts/:postId/comments/:commentId
+router.delete('/:postId/comments/:commentId', async (req, res) => {
+  try {
+    const postId = Number(req.params.postId);
+    const commentId = Number(req.params.commentId);
+    if (!Number.isFinite(postId) || !Number.isFinite(commentId)) {
+      return res.status(400).json({ error: 'invalid id' });
+    }
+
+    const comments = await getTable('post_comments');
+    if (!comments.some((c) => c.id === commentId && c.postId === postId)) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    const nextComments = comments.filter(
+      (c) => !(c.id === commentId && c.postId === postId),
+    );
+    await setTable('post_comments', nextComments);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/:id/follow', express.json(), async (req, res) => {
   try {
     const postId = Number(req.params.id);
