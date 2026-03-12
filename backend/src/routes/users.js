@@ -9,7 +9,8 @@ const router = express.Router();
 router.get('/me/posts', async (req, res) => {
   try {
     const posts = await getTable('posts');
-    res.json(posts || []);
+    const sorted = Array.isArray(posts) ? [...posts].sort((a, b) => b.id - a.id) : [];
+    res.json(sorted);
   } catch (err) {
     res.status(500).json({ error: err.message || 'Failed to load posts' });
   }
