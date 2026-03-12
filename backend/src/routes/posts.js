@@ -29,7 +29,10 @@ router.get('/', async (req, res) => {
     const comments = await getTable('post_comments');
     const follows = await getTable('follows');
 
-    const result = posts.map((p) => {
+    // Newest posts first (higher id first)
+    const sorted = [...posts].sort((a, b) => b.id - a.id);
+
+    const result = sorted.map((p) => {
       const likeCount = likes.filter((l) => l.postId === p.id).length;
       const commentCount = comments.filter((c) => c.postId === p.id).length;
       const isLiked = Boolean(clientId && likes.some((l) => l.postId === p.id && l.clientId === clientId));
