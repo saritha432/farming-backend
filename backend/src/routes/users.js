@@ -101,5 +101,114 @@ router.post('/:id/follow', express.json(), async (req, res) => {
   }
 });
 
+// -------- Simple follow request system (for cross-device "requests") --------
+
+// POST /api/users/:id/follow-request
+// Body: { fromUserId, fromName }
+router.post('/:id/follow-request', express.json(), async (req, res) => {
+  try {
+    const toUserId = Number(req.params.id);
+    const { fromUserId, fromName } = req.body || {};
+
+    if (!Number.isFinite(toUserId)) {
+      return res.status(400).json({ error: 'invalid target user id' });
+    }
+    if (!Number.isFinite(Number(fromUserId))) {
+      return res.status(400).json({ error: 'invalid from user id' });
+    }
+
+    const users = await getTable('users');
+    const toUser = users.find((u) => u.id === toUserId);
+    const fromUser = users.find((u) => u.id === Number(fromUserId));
+    if (!toUser || !fromUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const followRequests = await getTable('follow_requests');
+    const existing = followRequests.find(
+      (r) =>
+        r.fromUserId === Number(fromUserId) &&
+        r.toUserId === toUserId &&
+        r.status === 'pending',
+    );
+    if (existing) {
+      return res.json(existing);
+    }
+
+    const nextId =
+      followRequests.reduce((max, r) => (r.id > max ? r.id : max), 0) + 1;
+
+    const request = {
+      id: nextId,
+      fromUserId: Number(fromUserId),
+      fromName: fromName || fromUser.username || fromUser.fullName || fromUser.email || 'User',
+      toUserId,
+      toName: toUser.username || toUser.fullName || toUser.email || 'User',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = [...followRequests, request];
+    await setTable('follow_requests', updated);
+
+    res.json(request);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to create follow request' });
+  }
+});
+
+// GET /api/users/follow-requests?toUserId=123&status=pending
+router.get('/follow-requests', async (req, res) => {
+  try {
+    const toUserId = Number(req.query.toUserId);
+    const status = (req.query.status || 'pending').toString();
+
+    if (!Number.isFinite(toUserId)) {
+      return res.status(400).json({ error: 'toUserId required' });
+    }
+
+    const followRequests = await getTable('follow_requests');
+    const filtered = followRequests.filter(
+      (r) => r.toUserId === toUserId && (!status || r.status === status),
+    );
+
+    res.json(filtered);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to load follow requests' });
+  }
+});
+
+// POST /api/users/follow-requests/:id/:action  (action = accept | reject)
+router.post('/follow-requests/:id/:action', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const action = req.params.action;
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'invalid request id' });
+    }
+    if (action !== 'accept' && action !== 'reject') {
+      return res.status(400).json({ error: 'invalid action' });
+    }
+
+    const followRequests = await getTable('follow_requests');
+    const idx = followRequests.findIndex((r) => r.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    const updatedReq = {
+      ...followRequests[idx],
+      status: action === 'accept' ? 'accepted' : 'rejected',
+    };
+    const updated = [...followRequests];
+    updated[idx] = updatedReq;
+    await setTable('follow_requests', updated);
+
+    res.json(updatedReq);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to update follow request' });
+  }
+});
+
 module.exports = router;
 
