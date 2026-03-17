@@ -204,9 +204,89 @@ router.post('/follow-requests/:id/:action', async (req, res) => {
     updated[idx] = updatedReq;
     await setTable('follow_requests', updated);
 
+    // When a request is accepted, also create a user-to-user follow relation
+    if (action === 'accept') {
+      const userFollows = await getTable('user_follows');
+      const exists = userFollows.some(
+        (f) =>
+          f.followerUserId === updatedReq.fromUserId &&
+          f.followingUserId === updatedReq.toUserId,
+      );
+      if (!exists) {
+        const nextUserFollows = [
+          ...userFollows,
+          {
+            followerUserId: updatedReq.fromUserId,
+            followingUserId: updatedReq.toUserId,
+          },
+        ];
+        await setTable('user_follows', nextUserFollows);
+      }
+    }
+
     res.json(updatedReq);
   } catch (err) {
     res.status(500).json({ error: err.message || 'Failed to update follow request' });
+  }
+});
+
+// --- Followers / Following lists for Instagram-style profile counts ---
+
+// GET /api/users/:id/followers - users who follow this user (via accepted requests)
+router.get('/:id/followers', async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ error: 'invalid user id' });
+    }
+
+    const users = await getTable('users');
+    const userFollows = await getTable('user_follows');
+
+    const followerLinks = userFollows.filter((f) => f.followingUserId === userId);
+    const followerIds = followerLinks.map((f) => f.followerUserId);
+
+    const followers = users.filter((u) => followerIds.includes(u.id));
+
+    res.json(
+      followers.map((u) => ({
+        id: u.id,
+        username: u.username,
+        fullName: u.fullName,
+        email: u.email,
+      })),
+    );
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to load followers' });
+  }
+});
+
+// GET /api/users/:id/following - users this user is following
+router.get('/:id/following', async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ error: 'invalid user id' });
+    }
+
+    const users = await getTable('users');
+    const userFollows = await getTable('user_follows');
+
+    const followingLinks = userFollows.filter((f) => f.followerUserId === userId);
+    const followingIds = followingLinks.map((f) => f.followingUserId);
+
+    const following = users.filter((u) => followingIds.includes(u.id));
+
+    res.json(
+      following.map((u) => ({
+        id: u.id,
+        username: u.username,
+        fullName: u.fullName,
+        email: u.email,
+      })),
+    );
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to load following users' });
   }
 });
 
