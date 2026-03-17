@@ -19,14 +19,14 @@ router.get('/me/posts', async (req, res) => {
 // GET /api/users - search users
 // Optional query params:
 // - q: search term (username/fullName/email)
-// - clientId: to compute following state
+// - currentUserId: logged-in user id to compute following state
 router.get('/', async (req, res) => {
   try {
     const q = (req.query.q || '').toString().trim().toLowerCase();
-    const clientId = (req.query.clientId || '').toString().trim();
+    const currentUserId = Number(req.query.currentUserId);
 
     const users = await getTable('users');
-    const follows = await getTable('follows');
+    const userFollows = await getTable('user_follows');
 
     const filtered = users.filter((u) => {
       if (!q) return true;
@@ -42,8 +42,12 @@ router.get('/', async (req, res) => {
 
     const result = filtered.map((u) => {
       const isFollowing =
-        !!clientId &&
-        follows.some((f) => f.userId === u.id && f.clientId === clientId);
+        Number.isFinite(currentUserId) &&
+        userFollows.some(
+          (f) =>
+            f.followerUserId === currentUserId &&
+            f.followingUserId === u.id,
+        );
       return {
         id: u.id,
         username: u.username,
