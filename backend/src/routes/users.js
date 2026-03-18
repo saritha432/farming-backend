@@ -110,6 +110,7 @@ router.get('/', async (req, res) => {
         username: u.username,
         fullName: u.fullName,
         email: u.email,
+        avatar: u.avatar || null,
         isFollowing,
       };
     });
@@ -315,6 +316,7 @@ router.get('/:id/followers', async (req, res) => {
         username: u.username,
         fullName: u.fullName,
         email: u.email,
+        avatar: u.avatar || null,
       })),
     );
   } catch (err) {
@@ -344,6 +346,7 @@ router.get('/:id/following', async (req, res) => {
         username: u.username,
         fullName: u.fullName,
         email: u.email,
+        avatar: u.avatar || null,
       })),
     );
   } catch (err) {
