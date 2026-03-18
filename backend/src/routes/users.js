@@ -1,9 +1,66 @@
 const express = require('express');
+const multer = require('multer');
+const cloudinary = require('../cloudinary');
 const { getTable, setTable } = require('../db');
 
 const router = express.Router();
 
 // Very lightweight \"profile\" and user listing API.
+
+// Profile photo uploads (image only)
+const uploadAvatar = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = /^image\//;
+    if (allowed.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Only images allowed'), false);
+  },
+});
+
+// POST /api/users/:id/avatar  (multipart/form-data: avatar=<file>)
+router.post('/:id/avatar', uploadAvatar.single('avatar'), async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ error: 'invalid user id' });
+    }
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: 'avatar file required' });
+    }
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'agrovibes_avatars',
+          resource_type: 'image',
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        },
+      );
+      stream.end(req.file.buffer);
+    });
+
+    const avatarUrl = uploadResult.secure_url;
+
+    const users = await getTable('users');
+    const idx = users.findIndex((u) => u.id === userId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updatedUser = { ...users[idx], avatar: avatarUrl };
+    const nextUsers = [...users];
+    nextUsers[idx] = updatedUser;
+    await setTable('users', nextUsers);
+
+    res.json({ avatar: avatarUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to upload avatar' });
+  }
+});
 
 // GET /api/users/me/posts - return all posts (frontend filters by current user)
 router.get('/me/posts', async (req, res) => {
