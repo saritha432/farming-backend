@@ -18,30 +18,58 @@ const uploadAvatar = multer({
   },
 });
 
-// POST /api/users/:id/avatar  (multipart/form-data: avatar=<file>)
-router.post('/:id/avatar', uploadAvatar.single('avatar'), async (req, res) => {
+// POST /api/users/:id/avatar
+// Accepts:
+// - multipart/form-data with image file fields (avatar/image/file/photo)
+// - JSON body with data URI/base64 in avatar/image/imageData/file
+router.post('/:id/avatar', uploadAvatar.any(), async (req, res) => {
   try {
     const userId = Number(req.params.id);
     if (!Number.isFinite(userId)) {
       return res.status(400).json({ error: 'invalid user id' });
     }
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'avatar file required' });
-    }
+    const files = Array.isArray(req.files) ? req.files : [];
+    const preferredFieldNames = ['avatar', 'image', 'file', 'photo'];
+    const pickedFile =
+      preferredFieldNames
+        .map((field) => files.find((f) => f.fieldname === field && f.buffer))
+        .find(Boolean) || files.find((f) => f && f.buffer);
 
-    const uploadResult = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'agrovibes_avatars',
-          resource_type: 'image',
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        },
-      );
-      stream.end(req.file.buffer);
-    });
+    const jsonImage =
+      (req.body && (req.body.avatar || req.body.image || req.body.imageData || req.body.file)) ||
+      null;
+
+    let uploadResult = null;
+
+    if (pickedFile && pickedFile.buffer) {
+      uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'agrovibes_avatars',
+            resource_type: 'image',
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          },
+        );
+        stream.end(pickedFile.buffer);
+      });
+    } else if (typeof jsonImage === 'string' && jsonImage.trim()) {
+      // Supports both data URI and plain base64 payloads from camera capture flows.
+      const payload = jsonImage.trim();
+      const normalized = payload.startsWith('data:image/')
+        ? payload
+        : `data:image/jpeg;base64,${payload}`;
+      uploadResult = await cloudinary.uploader.upload(normalized, {
+        folder: 'agrovibes_avatars',
+        resource_type: 'image',
+      });
+    } else {
+      return res
+        .status(400)
+        .json({ error: 'avatar image required (file or base64 payload)' });
+    }
 
     const avatarUrl = uploadResult.secure_url;
 
