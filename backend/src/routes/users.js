@@ -12,8 +12,13 @@ const uploadAvatar = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /^image\//;
-    if (allowed.test(file.mimetype)) cb(null, true);
+    const m = (file.mimetype || '').toLowerCase();
+    // Camera capture on mobile often sends empty mimetype or octet-stream.
+    const ok =
+      /^image\//.test(m) ||
+      m === 'application/octet-stream' ||
+      m === '';
+    if (ok) cb(null, true);
     else cb(new Error('Only images allowed'), false);
   },
 });
