@@ -25,6 +25,7 @@ router.get('/', async (req, res) => {
     const rows = await getTable('equipment');
     const items = rows.map((r) => ({
       id: r.id,
+      ownerUserId: r.ownerUserId != null ? Number(r.ownerUserId) : null,
       providerName: r.providerName || r.ownerName || r.farmerName || '',
       phone: r.phone || r.mobile || '',
       name: r.name,
@@ -48,13 +49,25 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, mode, price, location, includesOperator, providerName, phone, operations, imageUrl } = req.body;
+    const {
+      name,
+      mode,
+      price,
+      location,
+      includesOperator,
+      providerName,
+      phone,
+      operations,
+      imageUrl,
+      ownerUserId,
+    } = req.body;
     if (!name || !mode || !price) {
       return res.status(400).json({ error: 'name, mode, and price are required' });
     }
     const rows = await getTable('equipment');
     const newRow = {
       id: nextId(rows),
+      ownerUserId: ownerUserId != null && Number.isFinite(Number(ownerUserId)) ? Number(ownerUserId) : null,
       providerName: (providerName || '').toString().trim(),
       phone: (phone || '').toString().trim(),
       name,
