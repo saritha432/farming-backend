@@ -6,19 +6,62 @@ const { getTable, setTable } = require('../db');
 const router = express.Router();
 const SALT_ROUNDS = 10;
 
+const ALLOWED_ROLES = ['user', 'provider'];
+
+function normalizeRole(role) {
+  const r = (role || 'user').toString().toLowerCase().trim();
+  return ALLOWED_ROLES.includes(r) ? r : 'user';
+}
+
 function nextId(rows) {
   return rows.length ? Math.max(...rows.map((r) => r.id)) + 1 : 1;
 }
 
+function publicUser(u) {
+  if (!u || u.id == null) return null;
+  return {
+    id: u.id,
+    username: u.username,
+    fullName: u.fullName,
+    email: u.email,
+    role: u.role || 'user',
+    avatar: u.avatar || null,
+    bio: u.bio || '',
+  };
+}
+
+// GET /api/auth/me — Bearer token is numeric user id (MVP session)
+router.get('/me', async (req, res) => {
+  try {
+    const auth = (req.headers.authorization || '').toString();
+    const m = auth.match(/^Bearer\s+(.+)$/i);
+    if (!m) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const userId = Number(m[1].trim());
+    if (!Number.isFinite(userId)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const users = await getTable('users');
+    const user = users.find((u) => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(publicUser(user));
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to load profile' });
+  }
+});
+
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
-  // res.send('Signup route working');
   try {
-    const { username, fullName, email, password } = req.body || {};
+    const { username, fullName, email, password, role } = req.body || {};
     const trim = (v) => (typeof v === 'string' ? v.trim() : '');
     const usernameTrim = trim(username);
     const fullNameTrim = trim(fullName);
     const emailTrim = trim(email).toLowerCase();
+    const roleNorm = normalizeRole(role);
 
     if (!usernameTrim || !fullNameTrim || !emailTrim || !password) {
       return res
@@ -48,16 +91,22 @@ router.post('/signup', async (req, res) => {
       fullName: fullNameTrim,
       email: emailTrim,
       passwordHash,
+      role: roleNorm,
       createdAt: new Date().toISOString(),
     };
 
     await setTable('users', [...users, newUser]);
 
+    const u = publicUser(newUser);
     res.status(201).json({
+      token: String(newUser.id),
+      user: u,
+      // backwards compatibility
       id: newUser.id,
       username: newUser.username,
       fullName: newUser.fullName,
       email: newUser.email,
+      role: roleNorm,
     });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Sign up failed' });
@@ -88,11 +137,15 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    const u = publicUser(user);
     res.json({
+      token: String(user.id),
+      user: u,
       id: user.id,
       username: user.username,
       fullName: user.fullName,
       email: user.email,
+      role: u.role,
     });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Login failed' });

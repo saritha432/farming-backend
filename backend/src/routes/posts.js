@@ -73,6 +73,25 @@ const createPostHandler = async (req, res) => {
       return res.status(400).json({ error: 'title is required' });
     }
 
+    const clientUploadId = (req.body.clientUploadId || '').toString().trim();
+    const posts = await getTable('posts');
+    if (clientUploadId) {
+      const existing = posts.find((p) => String(p.clientUploadId || '') === clientUploadId);
+      if (existing) {
+        const likes = await getTable('post_likes');
+        const comments = await getTable('post_comments');
+        const likeCount = likes.filter((l) => l.postId === existing.id).length;
+        const commentCount = comments.filter((c) => c.postId === existing.id).length;
+        return res.json({
+          ...existing,
+          likeCount,
+          commentCount,
+          isLiked: false,
+          isFollowing: false,
+        });
+      }
+    }
+
     let mediaUrl = null;
     if (req.file && req.file.buffer) {
       const isVideo = /^video\//.test(req.file.mimetype) || req.file.originalname.toLowerCase().endsWith('.mp4');
@@ -94,8 +113,6 @@ const createPostHandler = async (req, res) => {
 
       mediaUrl = uploadResult.secure_url;
     }
-
-    const posts = await getTable('posts');
     const newPost = {
       id: nextId(posts),
       farmer,
@@ -105,6 +122,7 @@ const createPostHandler = async (req, res) => {
       description,
       tags,
       mediaUrl,
+      ...(clientUploadId ? { clientUploadId } : {}),
     };
     await setTable('posts', [...posts, newPost]);
 
